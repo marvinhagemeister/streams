@@ -25,7 +25,7 @@ promise_test(t => {
     assert_array_equals(ws.events, ['close']);
   });
 
-}, 'Underlying sink close: throwing method');
+}, 'close: throwing method should cause writer close() and ready to reject');
 
 promise_test(t => {
 
@@ -43,7 +43,39 @@ promise_test(t => {
     assert_array_equals(ws.events, ['close']);
   });
 
-}, 'Underlying sink close: returning a rejected promise');
+}, 'close: returning a rejected promise should cause writer close() and ready to reject');
+
+promise_test(t => {
+
+  const startPromise = Promise.resolve();
+  let rejectSinkWritePromise;
+  const ws = recordingWritableStream({
+    start() {
+      return startPromise;
+    },
+    write(chunk) {
+      return new Promise((r, reject) => {
+        rejectSinkWritePromise = reject;
+      });
+    }
+  });
+
+  return startPromise.then(() => {
+    const writer = ws.getWriter();
+    const writePromise = writer.write('a');
+    rejectSinkWritePromise(error1);
+
+    return Promise.all([
+      promise_rejects(t, error1, writePromise, 'writer write must reject with the same error'),
+      promise_rejects(t, error1, writer.ready, 'ready promise must reject with the same error')
+    ]);
+  })
+  .then(() => {
+    assert_array_equals(ws.events, ['write', 'a']);
+  });
+
+}, 'write: returning a promise that becomes rejected after the writer write() should cause writer write() and ready ' +
+   'to reject');
 
 promise_test(t => {
 
@@ -58,7 +90,6 @@ promise_test(t => {
   });
 
   const writer = ws.getWriter();
-
 
   // Do not wait for this; we want to test the ready promise when the stream is "full" (desiredSize = 0), but if we wait
   // then the stream will transition back to "empty" (desiredSize = 1)
@@ -75,4 +106,4 @@ promise_test(t => {
     assert_array_equals(ws.events, ['write', 'a', 'write', 'b']);
   });
 
-}, 'Underlying sink write: returning a rejected promise (second write)');
+}, 'write: returning a rejected promise (second write) should cause writer write() and ready to reject');

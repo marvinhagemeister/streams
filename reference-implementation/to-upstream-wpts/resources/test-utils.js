@@ -1,4 +1,5 @@
 'use strict';
+// This file already exists upstream. We are duplicating it here due to tooling limitations.
 
 self.getterRejects = (t, obj, getterName, target) => {
   const getter = Object.getOwnPropertyDescriptor(obj, getterName).get;
